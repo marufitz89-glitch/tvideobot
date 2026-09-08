@@ -1,0 +1,1 @@
+# TikTok downloads use the direct TikWM and SnapTik HTTP APIs.
