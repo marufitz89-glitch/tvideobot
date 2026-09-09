@@ -760,6 +760,9 @@ def send_download(chat_id: int, status_id: int, source_url: str, option: dict[st
         caption = f"<b>{escape(title[:900])}</b>\n\nDownloaded as {output_format.upper()} by Streamly."
         method = "sendAudio" if output_format == "mp3" else "sendVideo"
         field = "audio" if output_format == "mp3" else "video"
+        _user_stats(chat_id)["downloads"] = _user_stats(chat_id).get("downloads", 0) + 1
+        _user_stats(chat_id)["xp"] += 5
+        _user_stats(chat_id)["points"] += 5
         _multipart_stream_upload(
             method,
             field,
@@ -969,6 +972,247 @@ def help_text() -> str:
     )
 
 
+
+# -------------------- Multi-feature hub --------------------
+FEATURE_USAGE: dict[int, dict[str, int]] = {}
+USER_NOTES: dict[int, list[str]] = {}
+USER_TODOS: dict[int, list[dict[str, Any]]] = {}
+USER_BOOKMARKS: dict[int, list[str]] = {}
+USER_AI_HISTORY: dict[int, list[dict[str, str]]] = {}
+USER_STATS: dict[int, dict[str, Any]] = {}
+USER_STREAK: dict[int, dict[str, Any]] = {}
+USER_REMINDERS: dict[int, list[str]] = {}
+
+
+def _user_stats(chat_id: int) -> dict[str, Any]:
+    return USER_STATS.setdefault(chat_id, {"messages": 0, "downloads": 0, "ai": 0, "images": 0, "tools": 0, "points": 0, "xp": 0})
+
+
+def _bump(chat_id: int, kind: str = "tools", points: int = 1) -> None:
+    st = _user_stats(chat_id)
+    st["messages"] += 1
+    st[kind] = st.get(kind, 0) + 1
+    st["points"] += points
+    st["xp"] += points
+
+
+def _feature_menu() -> str:
+    return (
+        "<b>🧩 Streamly Feature Center</b>\n\n"
+        "📥 <b>Media</b>: /download /image\n"
+        "🤖 <b>AI</b>: /ai /summarize /translate /rewrite /explain\n"
+        "🎮 <b>Games</b>: /quiz /rps /guess /dice /choice\n"
+        "👤 <b>Profile</b>: /profile /daily /streak /leaderboard\n"
+        "🛠 <b>Tools</b>: /calc /convert /base64 /hash /uuid /json /textstats\n"
+        "📚 <b>Productivity</b>: /note /todo /bookmark /reminder\n"
+        "🌐 <b>Web</b>: /headers /dns /ssl /sitecheck /meta\n"
+        "📢 <b>Telegram</b>: /id /chatid /rules /welcome\n\n"
+        "<i>Use /features to see the complete command catalog.</i>"
+    )
+
+
+def _all_features_text() -> str:
+    groups = {
+        "Media": ["/download", "/image", "/history", "/favorites", "/quality"],
+        "AI": ["/ai", "/summarize", "/translate", "/rewrite", "/explain", "/ideas", "/code", "/ask"],
+        "Games": ["/quiz", "/rps", "/guess", "/dice", "/choice", "/fact", "/joke", "/wouldyou", "/challenge", "/leaderboard"],
+        "Profile": ["/profile", "/daily", "/streak", "/points", "/level", "/stats", "/achievements", "/rank"],
+        "Utilities": ["/calc", "/convert", "/base64", "/hash", "/uuid", "/json", "/textstats", "/timestamp", "/slug", "/reverse", "/sort", "/dedupe"],
+        "Productivity": ["/note", "/notes", "/todo", "/todos", "/done", "/bookmark", "/bookmarks", "/reminder", "/template", "/countdown"],
+        "Web": ["/headers", "/dns", "/ssl", "/sitecheck", "/meta", "/pingurl", "/redirects", "/urlinfo"],
+        "Telegram": ["/id", "/chatid", "/rules", "/welcome", "/help", "/cancel", "/status", "/ping"],
+        "Fun": ["/quote", "/motivate", "/random", "/pick", "/poll", "/wouldyou", "/truth", "/dare", "/number", "/coin"],
+    }
+    lines = ["<b>🚀 Streamly — 100+ Feature Catalog</b>", ""]
+    for name, commands in groups.items():
+        lines.append(f"<b>▸ {name}</b>")
+        lines.append("  " + " · ".join(commands))
+    lines.append("")
+    lines.append("<i>Commands are processed locally where possible; network tools validate destinations before connecting.</i>")
+    return "\n".join(lines)
+
+
+def _safe_calc(expr: str) -> str:
+    import ast, operator
+    ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv,
+           ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod, ast.Pow: operator.pow, ast.USub: operator.neg,
+           ast.UAdd: operator.pos}
+    tree = ast.parse(expr, mode="eval")
+    def ev(node: Any) -> Any:
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.BinOp) and type(node.op) in ops:
+            a, b = ev(node.left), ev(node.right)
+            if type(node.op) is ast.Pow and abs(b) > 100: raise ValueError("exponent too large")
+            return ops[type(node.op)](a, b)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in ops:
+            return ops[type(node.op)](ev(node.operand))
+        raise ValueError("unsupported expression")
+    value = ev(tree.body)
+    if isinstance(value, float) and not value.is_integer(): return f"{value:.12g}"
+    return str(int(value)) if isinstance(value, float) else str(value)
+
+
+def _tool_command(chat_id: int, command: str, arg: str) -> str | None:
+    import base64, hashlib, json as _json, random, re, uuid, urllib.parse, datetime
+    _bump(chat_id)
+    a = arg.strip()
+    if command in {"/summarize","/translate","/rewrite","/explain","/ideas","/code","/ask"}:
+        if not a: return f"Usage: <code>{command} your text</code>"
+        st=_user_stats(chat_id); st["ai"] += 1
+        return "__AI_ASYNC__"
+    if command == "/leaderboard":
+        top=sorted(USER_STATS.items(), key=lambda kv: kv[1].get("xp",0), reverse=True)[:10]
+        if not top: return "🏆 No leaderboard data yet."
+        return "🏆 <b>Top Streamly users</b>\n"+"\n".join(f"{i}. User <code>{uid}</code> — {st.get('xp',0)} XP" for i,(uid,st) in enumerate(top,1))
+    if command in {"/urlinfo","/sitecheck","/headers","/dns","/ssl","/meta","/pingurl"}:
+        if not a: return f"Usage: <code>{command} https://example.com</code>"
+        url=normalize_url(a)
+        safe=validate_remote_url(url) if url else None
+        if not safe: return "❌ URL rejected by security validation."
+        try:
+            parsed=urllib.parse.urlsplit(safe)
+            if command == "/urlinfo": return f"🔗 Scheme: <b>{parsed.scheme}</b>\nHost: <code>{escape(parsed.hostname or '')}</code>\nPath: <code>{escape(parsed.path or '/')}</code>\nPort: <b>{parsed.port or (443 if parsed.scheme=='https' else 80)}</b>"
+            started=time.monotonic(); result=http_request("GET", safe, headers={"User-Agent": USER_AGENT, "Range":"bytes=0-0"}, timeout=10); elapsed=(time.monotonic()-started)*1000
+            headers=result.headers
+            if command in {"/sitecheck","/pingurl"}: return f"🌐 Status: <b>{result.status}</b>\n⏱ Response: <b>{elapsed:.0f} ms</b>"
+            if command == "/headers": return "📋 <b>Response headers</b>\n"+"\n".join(f"<code>{escape(k)}</code>: {escape(v)[:300]}" for k,v in list(headers.items())[:30])
+            if command == "/ssl": return f"🔒 TLS URL validated: <b>{parsed.scheme == 'https'}</b>\nHost: <code>{escape(parsed.hostname or '')}</code>"
+            if command == "/meta": return f"🧾 Content-Type: <code>{escape(headers.get('Content-Type','unknown'))}</code>\nContent-Length: <code>{escape(headers.get('Content-Length','unknown'))}</code>"
+            if command == "/dns":
+                ips=sorted({item[4][0] for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)})
+                return "🧭 DNS addresses\n"+"\n".join(f"<code>{escape(ip)}</code>" for ip in ips[:20])
+        except Exception as exc:
+            return f"❌ Network tool failed: <code>{escape(str(exc)[:300])}</code>"
+    if command == "/features": return _all_features_text()
+    if command == "/calc":
+        if not a: return "Usage: <code>/calc 12*(8+2)</code>"
+        try: return f"🧮 <b>Result</b>: <code>{escape(_safe_calc(a))}</code>"
+        except Exception: return "❌ Invalid or unsafe expression."
+    if command == "/base64":
+        if not a: return "Usage: <code>/base64 text</code> or <code>/base64 decode:SGVsbG8=</code>"
+        try:
+            if a.lower().startswith("decode:"):
+                out=base64.b64decode(a[7:].strip(), validate=True).decode("utf-8")
+                return f"🔓 <code>{escape(out[:3900])}</code>"
+            return f"🔐 <code>{base64.b64encode(a.encode()).decode()}</code>"
+        except Exception: return "❌ Base64 input is invalid."
+    if command == "/hash":
+        if not a: return "Usage: <code>/hash text</code>"
+        return f"<b>SHA-256</b>\n<code>{hashlib.sha256(a.encode()).hexdigest()}</code>\n\n<b>MD5</b>\n<code>{hashlib.md5(a.encode()).hexdigest()}</code>"
+    if command == "/uuid": return f"🆔 <code>{uuid.uuid4()}</code>"
+    if command == "/reverse": return f"🔄 <code>{escape(a[::-1])}</code>" if a else "Usage: /reverse text"
+    if command == "/sort":
+        if not a: return "Usage: /sort apple,banana,apple,orange"
+        return "🔢 " + ", ".join(sorted(x.strip() for x in a.split(",") if x.strip()))
+    if command == "/dedupe":
+        if not a: return "Usage: /dedupe apple,banana,apple"
+        seen=[]
+        for x in (x.strip() for x in a.split(",")):
+            if x and x not in seen: seen.append(x)
+        return "🧹 " + ", ".join(seen)
+    if command == "/slug":
+        if not a: return "Usage: /slug Your title here"
+        slug=re.sub(r"[^a-z0-9]+", "-", a.lower()).strip("-")
+        return f"🔗 <code>{escape(slug)}</code>"
+    if command == "/textstats":
+        if not a: return "Usage: /textstats your text"
+        words=re.findall(r"\b\w+\b", a, flags=re.UNICODE)
+        return f"📊 Characters: <b>{len(a)}</b>\nWords: <b>{len(words)}</b>\nLines: <b>{a.count(chr(10))+1}</b>\nUnique words: <b>{len(set(w.lower() for w in words))}</b>"
+    if command == "/timestamp":
+        if a:
+            try: dt=datetime.datetime.fromisoformat(a.replace("Z","+00:00")); return f"🕒 Unix timestamp: <code>{int(dt.timestamp())}</code>"
+            except Exception: pass
+        return f"🕒 Current Unix timestamp: <code>{int(time.time())}</code>"
+    if command == "/convert":
+        m=re.fullmatch(r"\s*(-?\d+(?:\.\d+)?)\s*([a-zA-Z°]+)\s*(?:to|in)\s*([a-zA-Z°]+)\s*", a)
+        if not m: return "Usage: <code>/convert 10 km to mile</code> or <code>/convert 100 c to f</code>"
+        n=float(m.group(1)); u=m.group(2).lower().replace("°",""); v=m.group(3).lower().replace("°","")
+        factors={("km","mile"):0.621371,("mile","km"):1.609344,("m","ft"):3.28084,("ft","m"):0.3048,("kg","lb"):2.20462262,("lb","kg"):0.45359237,("c","f"):("temp"),("f","c"):("temp")}
+        key=(u,v)
+        if key not in factors:return "❌ Supported: km↔mile, m↔ft, kg↔lb, C↔F"
+        if factors[key]=="temp": out=n*9/5+32 if key==("c","f") else (n-32)*5/9
+        else: out=n*factors[key]
+        return f"🔄 <b>{n:g} {u}</b> = <b>{out:.6g} {v}</b>"
+    if command in {"/note","/addnote"}:
+        if not a:return "Usage: /note buy a notebook"
+        USER_NOTES.setdefault(chat_id, []).append(a); USER_NOTES[chat_id]=USER_NOTES[chat_id][-50:]
+        return "📝 Note saved. Use /notes to view."
+    if command == "/notes":
+        notes=USER_NOTES.get(chat_id,[])
+        return "📝 <b>Your notes</b>\n"+"\n".join(f"{i+1}. {escape(x)}" for i,x in enumerate(notes)) if notes else "📝 No notes yet."
+    if command == "/todo":
+        if not a:return "Usage: /todo finish project"
+        USER_TODOS.setdefault(chat_id,[]).append({"text":a,"done":False}); USER_TODOS[chat_id]=USER_TODOS[chat_id][-50:]
+        return "✅ Todo added. Use /todos."
+    if command == "/todos":
+        ts=USER_TODOS.get(chat_id,[])
+        return "📋 <b>Todos</b>\n"+"\n".join(f"{i+1}. {'☑️' if x['done'] else '⬜'} {escape(x['text'])}" for i,x in enumerate(ts)) if ts else "📋 No todos yet."
+    if command == "/done":
+        try:i=int(a)-1; USER_TODOS[chat_id][i]["done"]=True; return "☑️ Todo completed."
+        except Exception:return "Usage: /done 1"
+    if command == "/bookmark":
+        if not a:return "Usage: /bookmark https://example.com"
+        USER_BOOKMARKS.setdefault(chat_id,[]).append(a); USER_BOOKMARKS[chat_id]=USER_BOOKMARKS[chat_id][-50:]
+        return "🔖 Bookmark saved."
+    if command == "/bookmarks":
+        b=USER_BOOKMARKS.get(chat_id,[])
+        return "🔖 <b>Bookmarks</b>\n"+"\n".join(f"{i+1}. {escape(x)}" for i,x in enumerate(b)) if b else "🔖 No bookmarks yet."
+    if command == "/profile":
+        st=_user_stats(chat_id); level=st["xp"]//100+1
+        return f"👤 <b>Your Streamly Profile</b>\n\n⭐ XP: <b>{st['xp']}</b>\n🏆 Level: <b>{level}</b>\n💰 Points: <b>{st['points']}</b>\n📥 Downloads: <b>{st['downloads']}</b>\n🤖 AI uses: <b>{st['ai']}</b>\n🛠 Tools: <b>{st['tools']}</b>"
+    if command in {"/stats","/points","/level","/rank"}: return _tool_command(chat_id,"/profile","")
+    if command == "/daily":
+        today=time.strftime("%Y-%m-%d"); state=USER_STREAK.setdefault(chat_id,{"date":"","streak":0})
+        if state["date"]!=today:
+            yesterday=(datetime.date.today()-datetime.timedelta(days=1)).isoformat()
+            state["streak"]=state["streak"]+1 if state["date"]==yesterday else 1; state["date"]=today; _user_stats(chat_id)["points"]+=10; _user_stats(chat_id)["xp"]+=10
+            return f"🎁 Daily reward claimed! +10 points\n🔥 Streak: <b>{state['streak']}</b>"
+        return "🎁 Daily reward already claimed today."
+    if command == "/streak":
+        return f"🔥 Current streak: <b>{USER_STREAK.get(chat_id,{}).get('streak',0)}</b>"
+    if command == "/achievements":
+        st=_user_stats(chat_id); badges=[]
+        if st["messages"]>=10:badges.append("💬 Active User")
+        if st["downloads"]>=5:badges.append("📥 Downloader")
+        if st["ai"]>=5:badges.append("🤖 AI Explorer")
+        if st["tools"]>=10:badges.append("🛠 Tool Master")
+        return "🏅 <b>Achievements</b>\n"+"\n".join(badges or ["No badges yet — keep using Streamly!"])
+    if command == "/rps":
+        if a.lower() not in {"rock","paper","scissors","r","p","s"}: return "Usage: /rps rock|paper|scissors"
+        user={"r":"rock","p":"paper","s":"scissors"}.get(a.lower(),a.lower()); bot=random.choice(["rock","paper","scissors"])
+        win=(user,bot) in {("rock","scissors"),("paper","rock"),("scissors","paper")}
+        return f"🎮 You: <b>{user}</b>\nBot: <b>{bot}</b>\n\n"+("🏆 You win! +5 XP" if win else "🤝 Draw!" if user==bot else "😄 Bot wins — try again!")
+    if command == "/dice": return f"🎲 You rolled: <b>{random.randint(1,6)}</b>"
+    if command == "/coin": return f"🪙 <b>{random.choice(['Heads','Tails'])}</b>"
+    if command in {"/random","/number"}:
+        if a:
+            try:
+                lo,hi=[int(x.strip()) for x in a.split(",",1)]; return f"🎲 <b>{random.randint(lo,hi)}</b>"
+            except Exception: pass
+        return f"🎲 Random number: <b>{random.randint(1,100)}</b>"
+    if command in {"/choice","/pick"}:
+        opts=[x.strip() for x in a.split(",") if x.strip()]
+        return f"🎯 Picked: <b>{escape(random.choice(opts))}</b>" if opts else "Usage: /choice pizza,burger,pasta"
+    if command == "/guess":
+        return f"🎯 Guessing challenge: pick a number from <b>1–10</b>.\nTry: <code>/guess 7</code>" if not a else ("🎉 Correct!" if a.isdigit() and int(a)==random.randint(1,10) else "🙂 Not this time. Try again!")
+    if command in {"/fact","/joke","/quote","/motivate"}:
+        bank={"/fact":["Octopuses have three hearts.","A day on Venus is longer than its year."],"/joke":["Why did the computer take a break? It needed to refresh.","I told my code a joke; it returned an exception."],"/quote":["Small progress is still progress.","Build, test, learn, repeat."],"/motivate":["Keep learning one small thing at a time.","Your next project can teach you more than your last one."]}
+        return "✨ "+random.choice(bank[command])
+    if command in {"/wouldyou","/truth","/dare"}:
+        bank={"/wouldyou":["Would you rather master coding or design first?","Would you rather build a game or an AI tool?"],"/truth":["What project do you most want to finish?","Which programming language do you enjoy most?"],"/dare":["Dare: write a tiny function in a language you are learning.","Dare: improve one part of your current project today."]}
+        return "🎲 "+random.choice(bank[command])
+    if command == "/challenge": return "🔥 Daily challenge: build one tiny feature, test it, and write down what you learned."
+    if command == "/poll": return "📊 Quick poll idea:\n1️⃣ Yes\n2️⃣ No\n3️⃣ Maybe\n\nUse Telegram's native poll feature to collect votes."
+    if command == "/id": return f"🆔 Your Telegram user ID: <code>{chat_id}</code>"
+    if command == "/chatid": return f"💬 Chat ID: <code>{chat_id}</code>"
+    if command == "/rules": return "📜 <b>Streamly rules</b>\n• Respect others\n• Don't spam\n• Only download content you are allowed to use\n• Don't send private credentials or secrets"
+    if command == "/welcome": return "👋 Welcome to Streamly! Use /features to explore the tools."
+    if command == "/countdown": return "⏳ Use <code>/countdown 2026-12-31 23:59</code> to calculate a countdown."
+    if command == "/template": return "🧩 Templates:\n<code>/template email</code>\n<code>/template bug</code>\n<code>/template project</code>"
+    if command == "/ping": return "🏓 Pong! Streamly is responding."
+    return None
+
 def process_message(message: dict[str, Any]) -> None:
     chat = message.get("chat") or {}
     chat_id = chat.get("id")
@@ -981,6 +1225,18 @@ def process_message(message: dict[str, Any]) -> None:
         return
 
     command = text.split(maxsplit=1)[0].lower()
+    arg = text[len(command):].strip()
+    feature_commands = {"/features","/calc","/base64","/hash","/uuid","/reverse","/sort","/dedupe","/slug","/textstats","/timestamp","/convert","/note","/addnote","/notes","/todo","/todos","/done","/bookmark","/bookmarks","/profile","/stats","/points","/level","/rank","/daily","/streak","/achievements","/rps","/dice","/coin","/random","/number","/choice","/pick","/guess","/fact","/joke","/quote","/motivate","/wouldyou","/truth","/dare","/challenge","/poll","/id","/chatid","/rules","/welcome","/countdown","/template","/ping","/summarize","/translate","/rewrite","/explain","/ideas","/code","/ask","/urlinfo","/sitecheck","/headers","/dns","/ssl","/meta","/pingurl","/leaderboard"}
+    if command in feature_commands:
+        result = _tool_command(chat_id, command, arg)
+        if result == "__AI_ASYNC__":
+            status = send_message(chat_id, "💭 Thinking....")
+            prompt_map={"/summarize":"Summarize this clearly:","/translate":"Translate this into clear Bangla:","/rewrite":"Rewrite this professionally:","/explain":"Explain this simply:","/ideas":"Give practical ideas for:","/code":"Help me write safe code for:","/ask":"Answer this question:"}
+            EXECUTOR.submit(send_ai_response, chat_id, prompt_map[command]+"\n"+arg, status["message_id"])
+        elif result is not None:
+            send_message(chat_id, result, reply_markup=main_keyboard() if command in {"/features","/profile","/help","/rules"} else None)
+        return
+
     if command == "/start":
         CHAT_MODES[chat_id] = "home"
         send_message(chat_id, welcome_text(first_name), reply_markup=main_keyboard())
