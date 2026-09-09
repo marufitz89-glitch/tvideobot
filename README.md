@@ -1,22 +1,25 @@
-# Streamly Bot — Multi-Feature Upgrade
+# Streamly V3 — Inline Button Edition
 
-This build extends the existing Streamly Telegram bot with a mixed feature system instead of adding only downloader variants.
+Streamly V3 keeps the existing TikTok downloader/AI backend and replaces the normal feature-discovery UX with inline Telegram buttons.
 
-## Included categories
-- TikTok MP4/MP3 downloader with progress
-- AI assistant, image flow, summarize/translate/rewrite/explain/ideas/code/ask modes
-- Games and random utilities
-- User profile, XP, points, daily reward, streaks, achievements, leaderboard
-- Calculator, unit converter, Base64, hashes, UUID, text statistics, slug/reverse/sort/dedupe
-- Notes, todos, bookmarks, templates, countdown helper
-- URL inspection, safe site check, headers, DNS, TLS validation, metadata and latency tools
-- Telegram ID/chat utilities and rules
-- Existing security validation, retries, health server and Render/Docker support
+## Highlights
+- Inline-button home dashboard and category menus
+- TikTok MP4/MP3 flow with real quality selection
+- AI chat, summarize, translate, rewrite, explain, ideas, code and ask flows
+- AI image prompt flow
+- Games, profile, XP, streak and leaderboard
+- Calculator, converter, Base64, hashing, UUID, JSON, text tools
+- Notes, todos, bookmarks, reminders, templates and countdown
+- Safe web/URL inspection tools with SSRF validation
+- Native Telegram polls
+- Download history
+- Persistent-in-process quiz and guess game state
+- Reminder worker while the process is running
+- Legacy slash commands remain compatible, but they are no longer required for normal use
+- No third-party Python runtime dependency
 
 ## Environment
-Set `TOKEN` to a valid Telegram bot token. The bot cannot operate with an invalid token.
-
-The existing Meta AI fallback configuration is preserved.
+Set `TOKEN` to a valid Telegram BotFather token. The existing Meta AI key behavior is preserved through `META_AI_API_KEY` with the existing fallback value.
 
 ## Run
 ```bash
@@ -25,6 +28,8 @@ python app.py
 
 ## Docker
 ```bash
-docker build -t streamly .
-docker run -e TOKEN=YOUR_TOKEN -p 10000:10000 streamly
+docker build -t streamly-v3 .
+docker run -e TOKEN="YOUR_BOT_TOKEN" -p 8080:8080 streamly-v3
 ```
+
+User notes/todos/history/reminders are process-memory in this V3 build; a restart clears those in-memory records. The downloader security validation and Telegram error handling remain enabled.

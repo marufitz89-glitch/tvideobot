@@ -360,19 +360,85 @@ def inline_keyboard(rows: list[list[dict[str, str]]]) -> str:
 
 
 def main_keyboard() -> str:
-    return inline_keyboard(
-        [
-            [
-                {"text": "⬇️ Download TikTok", "callback_data": "mode:download", "style": "primary"},
-                {"text": "🤖 AI assistant", "callback_data": "mode:ai", "style": "primary"},
-            ],
-            [
-                {"text": "ℹ️ How it works", "callback_data": "help", "style": "primary"},
-                {"text": "✖️ Cancel", "callback_data": "cancel", "style": "danger"},
-            ],
-        ]
-    )
+    return inline_keyboard([
+        [{"text":"📥 Media","callback_data":"menu:media","style":"primary"},{"text":"🤖 AI","callback_data":"menu:ai","style":"primary"}],
+        [{"text":"🎮 Games","callback_data":"menu:games","style":"primary"},{"text":"🛠 Utilities","callback_data":"menu:utils","style":"primary"}],
+        [{"text":"👤 Profile","callback_data":"menu:profile","style":"primary"},{"text":"📚 Productivity","callback_data":"menu:productivity","style":"primary"}],
+        [{"text":"🌐 Web Tools","callback_data":"menu:web","style":"primary"},{"text":"📢 Telegram","callback_data":"menu:telegram","style":"primary"}],
+        [{"text":"🎉 Fun","callback_data":"menu:fun","style":"primary"},{"text":"ℹ️ Help","callback_data":"help","style":"primary"}],
+        [{"text":"✖️ Cancel","callback_data":"cancel","style":"danger"}],
+    ])
 
+def menu_keyboard(name: str) -> str:
+    menus={
+        "media":[
+            [("🎵 TikTok Downloader","download"),("🖼 AI Image","image")],
+            [("📜 Download History","tool:history"),("⭐ Favorites","menu:favorites")],
+            [("🎚 Quality Guide","tool:quality")],
+        ],
+        "ai":[
+            [("💬 AI Chat","ai:chat"),("📝 Summarize","ai:summarize")],
+            [("🌐 Translate","ai:translate"),("✍️ Rewrite","ai:rewrite")],
+            [("💡 Ideas","ai:ideas"),("💻 Code Helper","ai:code")],
+            [("🔎 Explain","ai:explain"),("❓ Ask","ai:ask")],
+            [("🖼 Generate Image","ai:image")],
+        ],
+        "games":[
+            [("🧠 Quiz","game:quiz"),("✊ RPS","game:rps")],
+            [("🎯 Guess Number","game:guess"),("🎲 Dice","game:dice")],
+            [("🪙 Coin","game:coin"),("🎲 Random Number","game:number")],
+            [("🎯 Pick a Choice","game:choice"),("🏆 Leaderboard","tool:leaderboard")],
+        ],
+        "utils":[
+            [("🧮 Calculator","tool:calc"),("🔄 Converter","tool:convert")],
+            [("🔐 Base64","tool:base64"),("🔑 Hash","tool:hash")],
+            [("🆔 UUID","tool:uuid"),("📄 JSON","tool:json")],
+            [("📊 Text Stats","tool:textstats"),("🕒 Timestamp","tool:timestamp")],
+            [("🔗 Slug","tool:slug"),("↩️ Reverse","tool:reverse")],
+            [("🔢 Sort","tool:sort"),("🧹 Dedupe","tool:dedupe")],
+        ],
+        "profile":[
+            [("👤 My Profile","tool:profile"),("📊 Statistics","tool:stats")],
+            [("⭐ Points","tool:points"),("🏅 Level","tool:level")],
+            [("🎁 Daily Reward","tool:daily"),("🔥 Streak","tool:streak")],
+            [("🏆 Achievements","tool:achievements"),("🥇 Rank","tool:rank")],
+            [("🏆 Leaderboard","tool:leaderboard")],
+        ],
+        "productivity":[
+            [("📝 Add Note","tool:note"),("📋 View Notes","tool:notes")],
+            [("➕ Add Todo","tool:todo"),("📋 View Todos","tool:todos")],
+            [("☑️ Complete Todo","tool:done"),("🔖 Add Bookmark","tool:bookmark")],
+            [("🔖 View Bookmarks","tool:bookmarks"),("⏰ Reminder","tool:reminder")],
+            [("🧩 Templates","tool:template"),("⏳ Countdown","tool:countdown")],
+        ],
+        "web":[
+            [("🔗 URL Info","tool:urlinfo"),("🌐 Site Check","tool:sitecheck")],
+            [("📋 Headers","tool:headers"),("🧭 DNS","tool:dns")],
+            [("🔒 SSL","tool:ssl"),("🧾 Meta","tool:meta")],
+            [("🏓 Ping URL","tool:pingurl"),("↪️ Redirects","tool:redirects")],
+        ],
+        "telegram":[
+            [("🆔 My ID","tool:id"),("💬 Chat ID","tool:chatid")],
+            [("📜 Rules","tool:rules"),("👋 Welcome","tool:welcome")],
+            [("📊 Bot Status","status"),("🏓 Ping","tool:ping")],
+            [("❌ Cancel Current","cancel")],
+        ],
+        "fun":[
+            [("✨ Fact","fun:fact"),("😂 Joke","fun:joke")],
+            [("💬 Quote","fun:quote"),("🔥 Motivate","fun:motivate")],
+            [("🤔 Would You Rather","fun:wouldyou"),("🎯 Truth","fun:truth")],
+            [("🔥 Dare","fun:dare"),("⚡ Challenge","fun:challenge")],
+            [("📊 Create Poll","fun:poll")],
+        ],
+    }
+    rows=[]
+    for row in menus.get(name,[]):
+        rows.append([{"text":t,"callback_data":d,"style":"primary"} for t,d in row])
+    rows += [[{"text":"🏠 Home","callback_data":"home","style":"primary"}],[{"text":"✖️ Cancel","callback_data":"cancel","style":"danger"}]]
+    return inline_keyboard(rows)
+
+def feature_page(title: str, description: str, menu: str) -> tuple[str,str]:
+    return f"<b>{escape(title)}</b>\n\n{description}", menu_keyboard(menu)
 
 def platform_keyboard() -> str:
     """Show the platforms currently supported by the downloader."""
@@ -775,6 +841,8 @@ def send_download(chat_id: int, status_id: int, source_url: str, option: dict[st
             },
             update,
         )
+        USER_HISTORY.setdefault(chat_id, []).append({"title": title, "format": output_format, "url": source_url, "time": time.time()})
+        USER_HISTORY[chat_id] = USER_HISTORY[chat_id][-20:]
         edit_message(chat_id, status_id, "<b>Download complete</b>\n\nআপনার ফাইল পাঠানো হয়েছে।", reply_markup=main_keyboard())
     except Exception as error:
         log("Download failed for chat %s: %s", chat_id, error)
@@ -981,7 +1049,9 @@ USER_BOOKMARKS: dict[int, list[str]] = {}
 USER_AI_HISTORY: dict[int, list[dict[str, str]]] = {}
 USER_STATS: dict[int, dict[str, Any]] = {}
 USER_STREAK: dict[int, dict[str, Any]] = {}
-USER_REMINDERS: dict[int, list[str]] = {}
+USER_REMINDERS: dict[int, list[dict[str, Any]]] = {}
+USER_HISTORY: dict[int, list[dict[str, Any]]] = {}
+USER_GAME_STATE: dict[int, dict[str, Any]] = {}
 
 
 def _user_stats(chat_id: int) -> dict[str, Any]:
@@ -1053,6 +1123,77 @@ def _safe_calc(expr: str) -> str:
     return str(int(value)) if isinstance(value, float) else str(value)
 
 
+def _quiz_data() -> list[dict[str, Any]]:
+    return [
+        {"q":"HTML stands for what?","a":["HyperText Markup Language","HighText Machine Language","Hyper Transfer Markup Link"],"c":0},
+        {"q":"Which language is commonly used with FastAPI?","a":["Python","Java","PHP"],"c":0},
+        {"q":"What does CSS mainly control?","a":["Web page presentation","Database storage","Server hardware"],"c":0},
+        {"q":"Which protocol is used by Telegram Bot API?","a":["HTTPS","FTP","SMTP"],"c":0},
+        {"q":"What does JSON stand for?","a":["JavaScript Object Notation","Java Source Object Network","Joined Simple Object Names"],"c":0},
+    ]
+
+
+def _start_quiz(chat_id: int) -> str:
+    q=random.choice(_quiz_data())
+    USER_GAME_STATE[chat_id]={"type":"quiz","question":q}
+    return "🧠 <b>Quiz</b>\n\n"+escape(q["q"])+"\n\n"+"\n".join(f"<b>{i+1}.</b> {escape(v)}" for i,v in enumerate(q["a"]))+"\n\nSend 1, 2 or 3."
+
+
+def _redirect_chain(url: str) -> list[str]:
+    chain=[url]
+    current=url
+    for _ in range(HTTP_MAX_REDIRECTS):
+        safe=validate_remote_url(current)
+        if not safe: raise RuntimeError("Unsafe redirect blocked")
+        req=Request(safe,headers={"User-Agent":USER_AGENT,"Range":"bytes=0-0"},method="GET")
+        class NoRedirect(__import__('urllib.request',fromlist=['HTTPRedirectHandler']).HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl): return None
+        opener=__import__('urllib.request',fromlist=['build_opener']).build_opener(NoRedirect())
+        try:
+            with opener.open(req,timeout=10) as r:
+                return chain+[r.geturl()] if r.geturl()!=current else chain
+        except HTTPError as e:
+            if e.code in {301,302,303,307,308}:
+                location=e.headers.get('Location')
+                if not location: break
+                nxt=__import__('urllib.parse',fromlist=['urljoin']).urljoin(current,location)
+                safe_next=validate_remote_url(nxt)
+                if not safe_next: raise RuntimeError("Unsafe redirect blocked")
+                current=safe_next; chain.append(current); continue
+            raise
+    return chain
+
+
+def _native_poll(chat_id: int, spec: str) -> str:
+    parts=[x.strip() for x in spec.split('|') if x.strip()]
+    if len(parts)<3 or len(parts)>11: return "❌ Format: <code>Question | Option 1 | Option 2</code>"
+    question=parts[0][:300]; options=[x[:100] for x in parts[1:11]]
+    telegram_call("sendPoll",{"chat_id":str(chat_id),"question":question,"options":json.dumps(options,ensure_ascii=False),"is_anonymous":"true"})
+    return "📊 Poll created successfully."
+
+
+def _schedule_reminder(chat_id: int, minutes: float, text: str) -> str:
+    if minutes <= 0 or minutes > 7*24*60: return "❌ Reminder time must be between 1 minute and 7 days."
+    rid=uuid.uuid4().hex[:8]
+    due=time.time()+minutes*60
+    USER_REMINDERS.setdefault(chat_id,[]).append({"id":rid,"due":due,"text":text[:500]})
+    return f"⏰ Reminder <code>{rid}</code> set for <b>{minutes:g} minutes</b>."
+
+
+def _reminder_loop() -> None:
+    while not SHUTDOWN.is_set():
+        now=time.time()
+        for chat_id,items in list(USER_REMINDERS.items()):
+            keep=[]
+            for item in items:
+                if item.get("due",0)<=now:
+                    try: send_message(chat_id,f"⏰ <b>Reminder</b>\n\n{escape(item.get('text',''))}",reply_markup=main_keyboard())
+                    except Exception as exc: log("Reminder send failed: %s",exc)
+                else: keep.append(item)
+            USER_REMINDERS[chat_id]=keep
+        SHUTDOWN.wait(2)
+
+
 def _tool_command(chat_id: int, command: str, arg: str) -> str | None:
     import base64, hashlib, json as _json, random, re, uuid, urllib.parse, datetime
     _bump(chat_id)
@@ -1073,7 +1214,7 @@ def _tool_command(chat_id: int, command: str, arg: str) -> str | None:
         try:
             parsed=urllib.parse.urlsplit(safe)
             if command == "/urlinfo": return f"🔗 Scheme: <b>{parsed.scheme}</b>\nHost: <code>{escape(parsed.hostname or '')}</code>\nPath: <code>{escape(parsed.path or '/')}</code>\nPort: <b>{parsed.port or (443 if parsed.scheme=='https' else 80)}</b>"
-            started=time.monotonic(); result=http_request("GET", safe, headers={"User-Agent": USER_AGENT, "Range":"bytes=0-0"}, timeout=10); elapsed=(time.monotonic()-started)*1000
+            started=time.monotonic(); result=http_request(safe, method="GET", headers={"User-Agent": USER_AGENT, "Range":"bytes=0-0"}, timeout=10); elapsed=(time.monotonic()-started)*1000
             headers=result.headers
             if command in {"/sitecheck","/pingurl"}: return f"🌐 Status: <b>{result.status}</b>\n⏱ Response: <b>{elapsed:.0f} ms</b>"
             if command == "/headers": return "📋 <b>Response headers</b>\n"+"\n".join(f"<code>{escape(k)}</code>: {escape(v)[:300]}" for k,v in list(headers.items())[:30])
@@ -1085,6 +1226,57 @@ def _tool_command(chat_id: int, command: str, arg: str) -> str | None:
         except Exception as exc:
             return f"❌ Network tool failed: <code>{escape(str(exc)[:300])}</code>"
     if command == "/features": return _all_features_text()
+    if command == "/history":
+        items=USER_HISTORY.get(chat_id,[])[-10:]
+        if not items: return "📜 <b>Download History</b>\n\nNo completed downloads yet."
+        lines=["📜 <b>Recent Downloads</b>"]
+        for i,x in enumerate(reversed(items),1): lines.append(f"{i}. {escape(x.get('title','TikTok'))} · {escape(x.get('format','').upper())}")
+        return "\n".join(lines)
+    if command == "/favorites":
+        items=USER_BOOKMARKS.get(chat_id,[])
+        return "⭐ <b>Favorites</b>\n\n"+"\n".join(f"{i}. <code>{escape(x)}</code>" for i,x in enumerate(items,1)) if items else "⭐ No favorites yet. Use Add Bookmark from Productivity."
+    if command == "/quality":
+        return "🎚 <b>Quality</b>\n\nAvailable qualities depend on the public TikTok source. After sending a link, Streamly will show the real available options."
+    if command == "/json":
+        if not a: return "Send JSON text."
+        try:
+            obj=_json.loads(a)
+            return f"📄 <b>Formatted JSON</b>\n<pre>{escape(_json.dumps(obj,ensure_ascii=False,indent=2)[:MAX_TEXT_LENGTH])}</pre>"
+        except Exception as exc: return f"❌ Invalid JSON: <code>{escape(str(exc)[:250])}</code>"
+    if command == "/quiz":
+        state=USER_GAME_STATE.get(chat_id)
+        if state and state.get("type")=="quiz" and a in {"1","2","3"}:
+            q=state["question"]; correct=int(q["c"])+1; USER_GAME_STATE.pop(chat_id,None)
+            if int(a)==correct:
+                _user_stats(chat_id)["xp"]+=10; _user_stats(chat_id)["points"]+=10
+                return "🎉 <b>Correct!</b> +10 XP\n\n"+_start_quiz(chat_id)
+            return f"🙂 Not quite. Correct answer: <b>{correct}</b>\n\n"+_start_quiz(chat_id)
+        return _start_quiz(chat_id)
+    if command == "/reminder":
+        if not a: return "Format: <code>10 Finish homework</code>"
+        m=re.match(r"^(\d+(?:\.\d+)?)\s+(.+)$",a)
+        if not m: return "Format: <code>10 Finish homework</code>"
+        return _schedule_reminder(chat_id,float(m.group(1)),m.group(2))
+    if command == "/countdown":
+        if not a: return "Format: <code>2026-12-31 23:59</code>"
+        try:
+            target=datetime.datetime.fromisoformat(a.replace("Z","+00:00"))
+            if target.tzinfo is None: target=target.replace(tzinfo=datetime.timezone.utc)
+            delta=target-datetime.datetime.now(datetime.timezone.utc)
+            if delta.total_seconds()<=0: return "⏳ That time has already passed."
+            days=delta.days; hours=delta.seconds//3600; minutes=(delta.seconds%3600)//60; seconds=delta.seconds%60
+            return f"⏳ <b>Countdown</b>\n\n{days} days, {hours} hours, {minutes} minutes, {seconds} seconds remaining."
+        except Exception: return "❌ Invalid ISO datetime."
+    if command == "/redirects":
+        if not a: return "Format: <code>/redirects https://example.com</code>"
+        safe=validate_remote_url(normalize_url(a) or "")
+        if not safe: return "❌ URL rejected by security validation."
+        try:
+            chain=_redirect_chain(safe)
+            return "↪️ <b>Redirect chain</b>\n"+"\n".join(f"{i}. <code>{escape(x)}</code>" for i,x in enumerate(chain,1))
+        except Exception as exc: return f"❌ Redirect check failed: <code>{escape(str(exc)[:250])}</code>"
+    if command == "/poll":
+        return _native_poll(chat_id,a) if a else "Format: <code>Question | Option 1 | Option 2</code>"
     if command == "/calc":
         if not a: return "Usage: <code>/calc 12*(8+2)</code>"
         try: return f"🧮 <b>Result</b>: <code>{escape(_safe_calc(a))}</code>"
@@ -1195,7 +1387,17 @@ def _tool_command(chat_id: int, command: str, arg: str) -> str | None:
         opts=[x.strip() for x in a.split(",") if x.strip()]
         return f"🎯 Picked: <b>{escape(random.choice(opts))}</b>" if opts else "Usage: /choice pizza,burger,pasta"
     if command == "/guess":
-        return f"🎯 Guessing challenge: pick a number from <b>1–10</b>.\nTry: <code>/guess 7</code>" if not a else ("🎉 Correct!" if a.isdigit() and int(a)==random.randint(1,10) else "🙂 Not this time. Try again!")
+        state=USER_GAME_STATE.get(chat_id)
+        if not a or not state or state.get("type")!="guess":
+            target=random.randint(1,10); USER_GAME_STATE[chat_id]={"type":"guess","target":target}
+            return "🎯 <b>Guess the number</b>\n\nI picked a number from <b>1–10</b>. Send your guess."
+        if not a.isdigit() or not 1<=int(a)<=10: return "Send a whole number from 1–10."
+        guess=int(a); target=int(state["target"])
+        if guess==target:
+            USER_GAME_STATE.pop(chat_id,None); _user_stats(chat_id)["xp"]+=10; _user_stats(chat_id)["points"]+=10
+            return "🎉 <b>Correct!</b> +10 XP\n\nTap Guess Number to play again."
+        hint="higher" if guess<target else "lower"
+        return f"🙂 Not yet. Try a <b>{hint}</b> number."
     if command in {"/fact","/joke","/quote","/motivate"}:
         bank={"/fact":["Octopuses have three hearts.","A day on Venus is longer than its year."],"/joke":["Why did the computer take a break? It needed to refresh.","I told my code a joke; it returned an exception."],"/quote":["Small progress is still progress.","Build, test, learn, repeat."],"/motivate":["Keep learning one small thing at a time.","Your next project can teach you more than your last one."]}
         return "✨ "+random.choice(bank[command])
@@ -1213,6 +1415,54 @@ def _tool_command(chat_id: int, command: str, arg: str) -> str | None:
     if command == "/ping": return "🏓 Pong! Streamly is responding."
     return None
 
+def _tool_prompt(chat_id: int, command: str) -> str:
+    prompts={
+        "/calc":"🧮 Send an expression, e.g. <code>12*(8+2)</code>",
+        "/convert":"🔄 Send conversion, e.g. <code>10 km to mile</code>",
+        "/base64":"🔐 Send text to encode, or <code>decode:SGVsbG8=</code>",
+        "/hash":"🔑 Send text to hash with SHA-256/MD5.",
+        "/json":"📄 Send JSON text to format/minify.",
+        "/textstats":"📊 Send the text you want to analyze.",
+        "/timestamp":"🕒 Send an ISO datetime, or tap again for current timestamp.",
+        "/slug":"🔗 Send a title to turn into a slug.",
+        "/reverse":"↩️ Send text to reverse.",
+        "/sort":"🔢 Send comma-separated values to sort.",
+        "/dedupe":"🧹 Send comma-separated values to remove duplicates.",
+        "/note":"📝 Send the note you want to save.",
+        "/todo":"➕ Send the todo you want to add.",
+        "/done":"☑️ Send the todo number to complete.",
+        "/bookmark":"🔖 Send a URL to bookmark.",
+        "/reminder":"⏰ Send <code>10 Your reminder</code> to remind you in 10 minutes.",
+        "/countdown":"⏳ Send <code>2026-12-31 23:59</code> for a countdown.",
+        "/rps":"✊ Choose Rock, Paper or Scissors.",
+        "/guess":"🎯 Send a number from 1–10. The bot will keep the target for this game.",
+        "/choice":"🎯 Send comma-separated choices, e.g. <code>pizza,burger,pasta</code>.",
+        "/poll":"📊 Send <code>Question | Option 1 | Option 2</code> (2–10 options).",
+        "/urlinfo":"🔗 Send a public http/https URL.",
+        "/sitecheck":"🌐 Send a public http/https URL.",
+        "/headers":"📋 Send a public http/https URL.",
+        "/dns":"🧭 Send a public http/https URL.",
+        "/ssl":"🔒 Send a public https URL.",
+        "/meta":"🧾 Send a public http/https URL.",
+        "/pingurl":"🏓 Send a public http/https URL.",
+        "/redirects":"↪️ Send a public http/https URL.",
+        "/template":"🧩 Send one of: <code>email</code>, <code>bug</code>, <code>project</code>.",
+    }
+    return prompts.get(command, f"Send input for <code>{escape(command)}</code>.")
+
+
+def _feature_result_keyboard(menu: str|None=None) -> str:
+    rows=[]
+    if menu: rows.append([{"text":"↩️ Back to section","callback_data":f"menu:{menu}","style":"primary"}])
+    rows += [[{"text":"🏠 Home","callback_data":"home","style":"primary"}], [{"text":"✖️ Cancel","callback_data":"cancel","style":"danger"}]]
+    return inline_keyboard(rows)
+
+
+def _set_tool_input(chat_id: int, command: str, menu: str) -> None:
+    CHAT_MODES[chat_id]=f"tool_input:{command}:{menu}"
+    send_message(chat_id, _tool_prompt(chat_id, command), reply_markup=_feature_result_keyboard(menu))
+
+
 def process_message(message: dict[str, Any]) -> None:
     chat = message.get("chat") or {}
     chat_id = chat.get("id")
@@ -1221,185 +1471,193 @@ def process_message(message: dict[str, Any]) -> None:
     text = (message.get("text") or "").strip()
     first_name = (message.get("from") or {}).get("first_name", "")
     if not text:
-        send_message(chat_id, "Text URL পাঠান অথবা নিচের menu ব্যবহার করুন।", reply_markup=main_keyboard())
+        send_message(chat_id, "Text input দরকার। নিচের menu থেকে feature বেছে নিন।", reply_markup=main_keyboard())
         return
 
-    command = text.split(maxsplit=1)[0].lower()
-    arg = text[len(command):].strip()
-    feature_commands = {"/features","/calc","/base64","/hash","/uuid","/reverse","/sort","/dedupe","/slug","/textstats","/timestamp","/convert","/note","/addnote","/notes","/todo","/todos","/done","/bookmark","/bookmarks","/profile","/stats","/points","/level","/rank","/daily","/streak","/achievements","/rps","/dice","/coin","/random","/number","/choice","/pick","/guess","/fact","/joke","/quote","/motivate","/wouldyou","/truth","/dare","/challenge","/poll","/id","/chatid","/rules","/welcome","/countdown","/template","/ping","/summarize","/translate","/rewrite","/explain","/ideas","/code","/ask","/urlinfo","/sitecheck","/headers","/dns","/ssl","/meta","/pingurl","/leaderboard"}
-    if command in feature_commands:
-        result = _tool_command(chat_id, command, arg)
-        if result == "__AI_ASYNC__":
-            status = send_message(chat_id, "💭 Thinking....")
+    mode=CHAT_MODES.get(chat_id,"home")
+
+    # Inline-button features that require user text.
+    if mode.startswith("tool_input:"):
+        parts=mode.split(":",2)
+        command=parts[1] if len(parts)>1 else ""
+        menu=parts[2] if len(parts)>2 else None
+        if command=="/rps" and text.lower() in {"rock","paper","scissors","r","p","s"}:
+            pass
+        result=_tool_command(chat_id, command, text)
+        if result is not None and result != "__AI_ASYNC__":
+            send_message(chat_id,result,reply_markup=_feature_result_keyboard(menu))
+        elif result == "__AI_ASYNC__":
+            status=send_message(chat_id,"💭 Thinking…")
             prompt_map={"/summarize":"Summarize this clearly:","/translate":"Translate this into clear Bangla:","/rewrite":"Rewrite this professionally:","/explain":"Explain this simply:","/ideas":"Give practical ideas for:","/code":"Help me write safe code for:","/ask":"Answer this question:"}
-            EXECUTOR.submit(send_ai_response, chat_id, prompt_map[command]+"\n"+arg, status["message_id"])
-        elif result is not None:
-            send_message(chat_id, result, reply_markup=main_keyboard() if command in {"/features","/profile","/help","/rules"} else None)
+            EXECUTOR.submit(send_ai_response,chat_id,prompt_map.get(command,"Answer:")+"\n"+text,status["message_id"])
+        CHAT_MODES[chat_id]="home"
         return
 
-    if command == "/start":
-        CHAT_MODES[chat_id] = "home"
-        send_message(chat_id, welcome_text(first_name), reply_markup=main_keyboard())
+    if mode=="ai_input":
+        status=send_message(chat_id,"💭 Thinking…")
+        _bump(chat_id,"ai",1)
+        EXECUTOR.submit(send_ai_response,chat_id,text,status["message_id"])
+        CHAT_MODES[chat_id]="home"
         return
-    if command == "/help":
-        send_message(chat_id, help_text(), reply_markup=main_keyboard())
+    if mode=="image_input":
+        status=send_message(chat_id,"🖼 Image তৈরি করছি…")
+        EXECUTOR.submit(send_ai_response,chat_id,f"/image {text}",status["message_id"])
+        CHAT_MODES[chat_id]="home"
         return
-    if command in {"/cancel", "/stop"}:
-        CHAT_MODES[chat_id] = "home"
-        with STATE_LOCK:
-            DOWNLOAD_OPTIONS.pop(chat_id, None)
-        send_message(chat_id, "Cancelled. আবার শুরু করতে পারেন।", reply_markup=main_keyboard())
-        return
-    if command == "/download":
-        CHAT_MODES[chat_id] = "platform"
-        send_message(chat_id, "কোন platform-এর video download করবেন?", reply_markup=platform_keyboard())
-        return
-    if command == "/ai":
-        prompt = text[len(command) :].strip()
-        CHAT_MODES[chat_id] = "ai"
-        if prompt:
-            status = send_message(chat_id, "💭 Thinking....")
-            EXECUTOR.submit(send_ai_response, chat_id, prompt, status["message_id"])
-        else:
-            send_message(chat_id, "AI mode চালু। আপনার প্রশ্ন লিখুন।")
-        return
-    if command == "/image":
-        prompt = text[len(command) :].strip()
-        if not prompt:
-            send_message(chat_id, "এভাবে লিখুন:\n<code>/image a futuristic city at night</code>")
-            return
-        status = send_message(chat_id, "AI image তৈরি করছি…")
-        EXECUTOR.submit(send_ai_response, chat_id, f"/image {prompt}", status["message_id"])
-        return
-
-    mode = CHAT_MODES.get(chat_id, "home")
-    detected = platform_from_url(normalize_url(text) or "")
-    if detected and mode in {"home", "ai"}:
-        if mode == "ai":
-            CHAT_MODES[chat_id] = "home"
-        CHAT_PLATFORMS[chat_id] = detected.key
-        mode = "awaiting_url"
-
-    if mode == "platform":
-        send_message(chat_id, "আগে TikTok বেছে নিন।", reply_markup=platform_keyboard())
-        return
-    if mode == "awaiting_url":
-        url = normalize_url(text)
-        platform = PLATFORM_BY_KEY.get(CHAT_PLATFORMS.get(chat_id, ""))
-        detected = platform_from_url(url or "") if url else None
-        if not url or not platform or not detected or detected.key != platform.key:
-            send_message(
-                chat_id,
-                "এটি valid public TikTok URL মনে হচ্ছে না। আবার URL পাঠান।",
-                reply_markup=platform_keyboard(),
-            )
+    if mode=="awaiting_url":
+        url=normalize_url(text)
+        platform=PLATFORM_BY_KEY.get(CHAT_PLATFORMS.get(chat_id,""))
+        detected=platform_from_url(url or "") if url else None
+        if not url or not platform or not detected or detected.key!=platform.key:
+            send_message(chat_id,"❌ Valid public TikTok URL পাঠান।",reply_markup=platform_keyboard())
             return
         with STATE_LOCK:
             if chat_id in ACTIVE_CHATS:
-                send_message(chat_id, "আপনার আগের download এখনও চলছে। একটু অপেক্ষা করুন।")
+                send_message(chat_id,"⏳ আপনার আগের download এখনও চলছে।")
                 return
             ACTIVE_CHATS.add(chat_id)
-        status = send_message(chat_id, "<b>🎵 TikTok</b>\n\nDownload শুরু করছি…")
-        CHAT_MODES[chat_id] = "home"
-        EXECUTOR.submit(resolve_download, chat_id, status["message_id"], url)
+        status=send_message(chat_id,"<b>🎵 TikTok</b>\n\nDownload শুরু করছি…")
+        CHAT_MODES[chat_id]="home"
+        EXECUTOR.submit(resolve_download,chat_id,status["message_id"],url)
         return
-    if mode == "ai":
-        status = send_message(chat_id, "💭 Thinking....")
-        EXECUTOR.submit(send_ai_response, chat_id, text, status["message_id"])
+    if mode=="ai":
+        status=send_message(chat_id,"💭 Thinking…")
+        _bump(chat_id,"ai",1)
+        EXECUTOR.submit(send_ai_response,chat_id,text,status["message_id"])
         return
-    send_message(chat_id, "একটি mode বেছে নিন—TikTok download বা AI assistant।", reply_markup=main_keyboard())
+
+    # Legacy commands remain compatible, but the normal UX is inline buttons.
+    command=text.split(maxsplit=1)[0].lower()
+    arg=text[len(command):].strip()
+    feature_commands={"/features","/calc","/base64","/hash","/uuid","/reverse","/sort","/dedupe","/slug","/textstats","/timestamp","/convert","/note","/addnote","/notes","/todo","/todos","/done","/bookmark","/bookmarks","/profile","/stats","/points","/level","/rank","/daily","/streak","/achievements","/rps","/dice","/coin","/random","/number","/choice","/pick","/guess","/fact","/joke","/quote","/motivate","/wouldyou","/truth","/dare","/challenge","/poll","/id","/chatid","/rules","/welcome","/countdown","/template","/ping","/summarize","/translate","/rewrite","/explain","/ideas","/code","/ask","/urlinfo","/sitecheck","/headers","/dns","/ssl","/meta","/pingurl","/leaderboard"}
+    if command in feature_commands:
+        result=_tool_command(chat_id,command,arg)
+        if result=="__AI_ASYNC__":
+            status=send_message(chat_id,"💭 Thinking…")
+            prompt_map={"/summarize":"Summarize this clearly:","/translate":"Translate this into clear Bangla:","/rewrite":"Rewrite this professionally:","/explain":"Explain this simply:","/ideas":"Give practical ideas for:","/code":"Help me write safe code for:","/ask":"Answer this question:"}
+            EXECUTOR.submit(send_ai_response,chat_id,prompt_map[command]+"\n"+arg,status["message_id"])
+        elif result is not None:
+            send_message(chat_id,result,reply_markup=main_keyboard())
+        return
+    if command=="/start":
+        CHAT_MODES[chat_id]="home"; send_message(chat_id,welcome_text(first_name),reply_markup=main_keyboard()); return
+    if command=="/help":
+        send_message(chat_id,help_text(),reply_markup=main_keyboard()); return
+    if command in {"/cancel","/stop"}:
+        CHAT_MODES[chat_id]="home"
+        with STATE_LOCK: DOWNLOAD_OPTIONS.pop(chat_id,None)
+        send_message(chat_id,"Cancelled. আবার menu থেকে শুরু করুন।",reply_markup=main_keyboard()); return
+    if command=="/download":
+        CHAT_MODES[chat_id]="platform"; send_message(chat_id,"কোন platform-এর video download করবেন?",reply_markup=platform_keyboard()); return
+    if command=="/ai":
+        CHAT_MODES[chat_id]="ai"
+        if arg:
+            status=send_message(chat_id,"💭 Thinking…"); _bump(chat_id,"ai",1); EXECUTOR.submit(send_ai_response,chat_id,arg,status["message_id"])
+        else: send_message(chat_id,"AI assistant চালু। আপনার প্রশ্ন লিখুন।",reply_markup=_feature_result_keyboard("ai"))
+        return
+    if command=="/image":
+        if arg:
+            status=send_message(chat_id,"🖼 Image তৈরি করছি…"); EXECUTOR.submit(send_ai_response,chat_id,f"/image {arg}",status["message_id"])
+        else: CHAT_MODES[chat_id]="image_input"; send_message(chat_id,"🖼 Image prompt লিখুন।",reply_markup=_feature_result_keyboard("media"))
+        return
+    detected=platform_from_url(normalize_url(text) or "")
+    if detected:
+        CHAT_PLATFORMS[chat_id]=detected.key; CHAT_MODES[chat_id]="awaiting_url"
+        # Re-enter the same text as URL input.
+        return process_message(message)
+    send_message(chat_id,"🏠 নিচের inline menu থেকে একটি feature বেছে নিন।",reply_markup=main_keyboard())
 
 
 def process_callback(callback: dict[str, Any]) -> None:
-    callback_id = callback.get("id", "")
-    data = callback.get("data", "")
-    message = callback.get("message") or {}
-    chat_id = (message.get("chat") or {}).get("id")
-    message_id = message.get("message_id")
+    callback_id=callback.get("id","")
+    data=callback.get("data","")
+    message=callback.get("message") or {}
+    chat_id=(message.get("chat") or {}).get("id")
+    message_id=message.get("message_id")
     answer_callback(callback_id)
-    if chat_id is None or message_id is None:
+    if chat_id is None or message_id is None: return
+
+    if data=="home":
+        CHAT_MODES[chat_id]="home"; edit_message(chat_id,message_id,welcome_text(),reply_markup=main_keyboard()); return
+    if data=="help":
+        edit_message(chat_id,message_id,help_text(),reply_markup=main_keyboard()); return
+    if data=="cancel":
+        CHAT_MODES[chat_id]="home"
+        with STATE_LOCK: DOWNLOAD_OPTIONS.pop(chat_id,None)
+        edit_message(chat_id,message_id,"❌ Cancelled.",reply_markup=main_keyboard()); return
+    if data.startswith("menu:"):
+        name=data.split(":",1)[1]
+        titles={"media":"📥 Media","ai":"🤖 AI Assistant","games":"🎮 Games","utils":"🛠 Utilities","profile":"👤 Profile","productivity":"📚 Productivity","web":"🌐 Web Tools","telegram":"📢 Telegram","fun":"🎉 Fun"}
+        edit_message(chat_id,message_id,f"<b>{titles.get(name,'Streamly')}</b>\n\nএকটি feature নির্বাচন করুন।",reply_markup=menu_keyboard(name)); return
+    if data=="download":
+        CHAT_MODES[chat_id]="platform"; edit_message(chat_id,message_id,"কোন platform-এর video download করবেন?",reply_markup=platform_keyboard()); return
+    if data=="status":
+        st=_user_stats(chat_id); edit_message(chat_id,message_id,f"<b>📊 Streamly Status</b>\n\nBot: <b>Online</b>\nUsers tracked: <b>{len(USER_STATS)}</b>\nYour XP: <b>{st.get('xp',0)}</b>",reply_markup=_feature_result_keyboard("telegram")); return
+    if data.startswith("ai:"):
+        action=data.split(":",1)[1]
+        if action=="chat": CHAT_MODES[chat_id]="ai_input"; edit_message(chat_id,message_id,"💬 আপনার প্রশ্ন লিখুন।",reply_markup=_feature_result_keyboard("ai")); return
+        if action=="image": CHAT_MODES[chat_id]="image_input"; edit_message(chat_id,message_id,"🖼 Image prompt লিখুন।",reply_markup=_feature_result_keyboard("ai")); return
+        command="/"+action
+        CHAT_MODES[chat_id]=f"tool_input:{command}:ai"
+        edit_message(chat_id,message_id,_tool_prompt(chat_id,command),reply_markup=_feature_result_keyboard("ai")); return
+    if data.startswith("game:"):
+        action=data.split(":",1)[1]
+        if action=="dice":
+            result=_tool_command(chat_id,"/dice","")
+            edit_message(chat_id,message_id,result or "🎲 Done",reply_markup=menu_keyboard("games")); return
+        if action=="coin":
+            result=_tool_command(chat_id,"/coin","")
+            edit_message(chat_id,message_id,result or "🪙 Done",reply_markup=menu_keyboard("games")); return
+        if action=="number":
+            result=_tool_command(chat_id,"/number","")
+            edit_message(chat_id,message_id,result or "🎲 Done",reply_markup=menu_keyboard("games")); return
+        command={"quiz":"/quiz","rps":"/rps","guess":"/guess","choice":"/choice"}.get(action,"/"+action)
+        CHAT_MODES[chat_id]=f"tool_input:{command}:games"
+        edit_message(chat_id,message_id,_tool_prompt(chat_id,command),reply_markup=_feature_result_keyboard("games")); return
+    if data.startswith("fun:"):
+        command="/"+data.split(":",1)[1]
+        result=_tool_command(chat_id,command,"")
+        edit_message(chat_id,message_id,result or "Done",reply_markup=menu_keyboard("fun")); return
+    if data.startswith("tool:"):
+        command="/"+data.split(":",1)[1]
+        direct={"/uuid","/notes","/todos","/bookmarks","/profile","/stats","/points","/level","/rank","/daily","/streak","/achievements","/leaderboard","/id","/chatid","/rules","/welcome","/ping","/quality","/history"}
+        menu={"calc":"utils","convert":"utils","base64":"utils","hash":"utils","uuid":"utils","json":"utils","textstats":"utils","timestamp":"utils","slug":"utils","reverse":"utils","sort":"utils","dedupe":"utils","note":"productivity","notes":"productivity","todo":"productivity","todos":"productivity","done":"productivity","bookmark":"productivity","bookmarks":"productivity","reminder":"productivity","template":"productivity","countdown":"productivity","urlinfo":"web","sitecheck":"web","headers":"web","dns":"web","ssl":"web","meta":"web","pingurl":"web","redirects":"web","profile":"profile","stats":"profile","points":"profile","level":"profile","rank":"profile","daily":"profile","streak":"profile","achievements":"profile","leaderboard":"games","id":"telegram","chatid":"telegram","rules":"telegram","welcome":"telegram","ping":"telegram","quality":"media","history":"media"}
+        if command in direct:
+            result=_tool_command(chat_id,command,"")
+            edit_message(chat_id,message_id,result or "Done",reply_markup=menu_keyboard(menu.get(command[1:],"utils"))); return
+        m=menu.get(command[1:],"utils")
+        _set_tool_input(chat_id,command,m)
+        edit_message(chat_id,message_id,_tool_prompt(chat_id,command),reply_markup=_feature_result_keyboard(m)); return
+    if data.startswith("mode:"):
+        if data=="mode:download":
+            CHAT_MODES[chat_id]="platform"; edit_message(chat_id,message_id,"কোন platform-এর video download করবেন?",reply_markup=platform_keyboard())
+        elif data=="mode:ai":
+            CHAT_MODES[chat_id]="ai_input"; edit_message(chat_id,message_id,"🤖 আপনার প্রশ্ন লিখুন।",reply_markup=_feature_result_keyboard("ai"))
         return
-
-    if data == "home":
-        CHAT_MODES[chat_id] = "home"
-        edit_message(chat_id, message_id, welcome_text(), reply_markup=main_keyboard())
-    elif data == "help":
-        edit_message(chat_id, message_id, help_text(), reply_markup=main_keyboard())
-    elif data == "cancel":
-        CHAT_MODES[chat_id] = "home"
-        with STATE_LOCK:
-            DOWNLOAD_OPTIONS.pop(chat_id, None)
-        edit_message(chat_id, message_id, "Cancelled. আবার শুরু করতে পারেন।", reply_markup=main_keyboard())
-    elif data == "mode:download":
-        CHAT_MODES[chat_id] = "platform"
-        edit_message(chat_id, message_id, "কোন platform-এর video download করবেন?", reply_markup=platform_keyboard())
-    elif data == "mode:ai":
-        CHAT_MODES[chat_id] = "ai"
-        edit_message(chat_id, message_id, "AI assistant mode চালু। আপনার প্রশ্ন লিখুন।")
-    elif data == "platform:tiktok":
-        CHAT_MODES[chat_id] = "awaiting_url"
-        CHAT_PLATFORMS[chat_id] = "tiktok"
-        edit_message(
-            chat_id,
-            message_id,
-            "<b>🎵 TikTok selected</b>\n\nএখন public video URL পাঠান।",
-            reply_markup=inline_keyboard(
-                [
-                    [{"text": "Change platform", "callback_data": "mode:download"}],
-                    [{"text": "Cancel", "callback_data": "cancel"}],
-                ]
-            ),
-        )
-    elif data == "back:quality":
-        item = DOWNLOAD_OPTIONS.get(chat_id)
-        if not item or time.time() - float(item.get("created_at", 0)) > STATE_TTL_SECONDS:
-            edit_message(chat_id, message_id, "Quality options expired। আবার link পাঠান।", reply_markup=platform_keyboard())
-            return
-        CHAT_MODES[chat_id] = "quality"
-        edit_message(
-            chat_id,
-            message_id,
-            f"<b>🎚 Quality নির্বাচন করুন</b>\n\n{escape(item['title'][:100])}",
-            reply_markup=quality_keyboard(item["options"]),
-        )
-    elif data.startswith("quality:"):
-        item = DOWNLOAD_OPTIONS.get(chat_id)
-        if item and time.time() - float(item.get("created_at", 0)) > STATE_TTL_SECONDS:
-            item = None
-            with STATE_LOCK:
-                DOWNLOAD_OPTIONS.pop(chat_id, None)
-        try:
-            index = int(data.split(":", 1)[1])
-            option = item["options"][index] if item else None
-        except (ValueError, IndexError, TypeError, KeyError):
-            option = None
+    if data=="platform:tiktok":
+        CHAT_MODES[chat_id]="awaiting_url"; CHAT_PLATFORMS[chat_id]="tiktok"
+        edit_message(chat_id,message_id,"<b>🎵 TikTok selected</b>\n\nএখন public video URL পাঠান।",reply_markup=inline_keyboard([[{"text":"🔙 Change platform","callback_data":"mode:download","style":"primary"}],[{"text":"✖️ Cancel","callback_data":"cancel","style":"danger"}]])); return
+    if data=="back:quality":
+        item=DOWNLOAD_OPTIONS.get(chat_id)
+        if not item or time.time()-float(item.get("created_at",0))>STATE_TTL_SECONDS:
+            edit_message(chat_id,message_id,"Quality options expired। আবার link পাঠান।",reply_markup=platform_keyboard()); return
+        CHAT_MODES[chat_id]="quality"; edit_message(chat_id,message_id,f"<b>🎚 Quality নির্বাচন করুন</b>\n\n{escape(item['title'][:100])}",reply_markup=quality_keyboard(item["options"])); return
+    if data.startswith("quality:"):
+        item=DOWNLOAD_OPTIONS.get(chat_id)
+        try: index=int(data.split(":",1)[1]); option=item["options"][index] if item else None
+        except (ValueError,IndexError,TypeError,KeyError): option=None
         if not option:
-            edit_message(chat_id, message_id, "এই quality selection-টি আর active নেই। আবার URL দিন.", reply_markup=platform_keyboard())
-            return
-        option = dict(option)
-        option["title"] = item["title"]
-        option["source_url"] = item["source_url"]
-        with STATE_LOCK:
-            DOWNLOAD_OPTIONS[chat_id]["selected"] = option
-        CHAT_MODES[chat_id] = "format"
-        edit_message(
-            chat_id,
-            message_id,
-            f"<b>✅ Quality selected</b>\n\n{escape(option['label'])}\n\nএখন output format নির্বাচন করুন:",
-            reply_markup=format_keyboard(),
-        )
-    elif data.startswith("format:"):
-        output_format = data.split(":", 1)[1].lower()
-        item = DOWNLOAD_OPTIONS.get(chat_id) or {}
-        selected = item.get("selected")
-        if output_format not in {"mp3", "mp4"} or not selected:
-            edit_message(chat_id, message_id, "এই selection-টি আর active নেই। আবার link দিন।", reply_markup=platform_keyboard())
-            return
-        option = dict(selected)
-        option["output_format"] = output_format
-        CHAT_MODES[chat_id] = "home"
-        EXECUTOR.submit(send_download, chat_id, message_id, item["source_url"], option)
-
+            edit_message(chat_id,message_id,"এই quality selection active নেই। আবার URL দিন।",reply_markup=platform_keyboard()); return
+        option=dict(option); option["title"]=item["title"]; option["source_url"]=item["source_url"]
+        with STATE_LOCK: DOWNLOAD_OPTIONS[chat_id]["selected"]=option
+        CHAT_MODES[chat_id]="format"
+        edit_message(chat_id,message_id,f"<b>✅ Quality selected</b>\n\n{escape(option['label'])}\n\nOutput format নির্বাচন করুন:",reply_markup=format_keyboard()); return
+    if data.startswith("format:"):
+        output_format=data.split(":",1)[1].lower(); item=DOWNLOAD_OPTIONS.get(chat_id) or {}; selected=item.get("selected")
+        if output_format not in {"mp3","mp4"} or not selected:
+            edit_message(chat_id,message_id,"এই selection active নেই। আবার link দিন।",reply_markup=platform_keyboard()); return
+        option=dict(selected); option["output_format"]=output_format; CHAT_MODES[chat_id]="home"
+        EXECUTOR.submit(send_download,chat_id,message_id,item["source_url"],option); return
 
 def polling_loop() -> None:
     offset = 0
@@ -1522,6 +1780,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, shutdown_handler)
     signal.signal(signal.SIGINT, shutdown_handler)
     health_server = start_health_server()
+    threading.Thread(target=_reminder_loop, name="reminders", daemon=True).start()
     start_keep_alive()
     try:
         try:
